@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+langchain
+langgraph
+langchain-google-genai
+chromadb
+tiktoken
+pypdf
+PyMuPDF
+python-dotenv
+requests
+rich
