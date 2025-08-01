@@ -3,6 +3,7 @@ uvicorn[standard]
 langchain
 langgraph
 langchain-google-genai
+langchain-chroma
 chromadb
 tiktoken
 pypdf
