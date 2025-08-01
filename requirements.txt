@@ -6,7 +6,7 @@ langchain-google-genai
 chromadb
 tiktoken
 pypdf
-PyMuPDF
+fitz
 python-dotenv
 requests
 rich

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, HttpUrl, Field
 from typing import List, Optional
 
 class QueryRequest(BaseModel):
@@ -8,8 +8,11 @@ class QueryRequest(BaseModel):
 class QueryResponse(BaseModel):
     answer: str
     rationale: str
-    source_image_urls: Optional[List[str]] = None
+    source_page: Optional[int] = None
 
 class AnswerWithRationale(BaseModel):
     answer: str
     rationale: str
+
+class GeneratedQueries(BaseModel):
+    queries: List[str] = Field(description="A list of 3 distinct, self-contained search queries based on the original question.")
