@@ -25,12 +25,12 @@ class RAGWorkflow:
         prompt = ChatPromptTemplate.from_template(
             "You are an expert research assistant tasked with query understanding and rewriting.\n"
             "Your job is to generate 3 diverse, relevant, and high-quality search queries based on the original user question.\n\n"
-            "👉 Your queries should:\n"
+            "Your queries should:\n"
             "- Target the core intent of the original question.\n"
             "- Vary slightly in phrasing to explore related angles or subtopics.\n"
             "- Be suitable for use in a document retrieval system.\n\n"
-            "🔶 Output must be a valid Pydantic object of type `GeneratedQueries`, with a `queries` field containing exactly 3 strings.\n\n"
-            "🧠 Think deeply before answering.\n"
+            "NOTE: Output must be a valid Pydantic object of type `GeneratedQueries`, with a `queries` field containing exactly 3 strings.\n\n"
+            "Think deeply before answering.\n"
             "Original Question: {question}"
         )
         structured_llm = self.decomposition_llm.with_structured_output(GeneratedQueries)
@@ -55,9 +55,9 @@ class RAGWorkflow:
         prompt = ChatPromptTemplate.from_template(
             "You are a highly knowledgeable assistant answering questions using the given context ONLY.\n"
             "Provide a concise, accurate answer and a clear rationale strictly based on the provided content.\n\n"
-            "📄 CONTEXT:\n{context}\n\n"
-            "❓ QUESTION: {question}\n\n"
-            "⚠️ INSTRUCTIONS:\n"
+            "CONTEXT:\n{context}\n\n"
+            "QUESTION: {question}\n\n"
+            "INSTRUCTIONS:\n"
             "- Use only the information in the context to formulate the answer.\n"
             "- Avoid making assumptions or using external knowledge.\n"
             "- Your response should be a valid Pydantic object of type `AnswerWithRationale` with two fields:\n"

@@ -3,10 +3,11 @@ import sys
 from rich import print as rprint
 from rich.panel import Panel
 from rich.text import Text
+from fastapi import BackgroundTasks
 
 from query_service import QueryService
 
-class MockBackgroundTasks:
+class MockBackgroundTasks(BackgroundTasks):
     def __init__(self):
         self.tasks_to_run = []
 
