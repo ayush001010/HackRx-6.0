@@ -10,9 +10,8 @@ class QueryResponse(BaseModel):
     rationale: str
     source_page: Optional[int] = None
 
-class AnswerWithRationale(BaseModel):
+class FinalAnswer(BaseModel):
     answer: str
-    rationale: str
 
 class GeneratedQueries(BaseModel):
     queries: List[str] = Field(description="A list of 3 distinct, self-contained search queries based on the original question.")

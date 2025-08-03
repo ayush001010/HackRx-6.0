@@ -4,7 +4,7 @@ from langgraph.graph import StateGraph, END
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.vectorstores import VectorStoreRetriever
-from models import AnswerWithRationale, GeneratedQueries
+from models import *
 from typing import Optional
 from config import ANSWER_LLM_MODEL,QUERY_LLM_MODEL,GOOGLE_API_KEY
 
@@ -13,7 +13,7 @@ class GraphState(TypedDict):
     decomposed_questions: List[str]
     retriever: VectorStoreRetriever
     documents: List[Document]
-    generation: AnswerWithRationale
+    generation: FinalAnswer
 
 class RAGWorkflow:
     def __init__(self):
@@ -35,7 +35,7 @@ class RAGWorkflow:
         )
         structured_llm = self.decomposition_llm.with_structured_output(GeneratedQueries)
         chain = prompt | structured_llm
-        generated_queries: Optional[GeneratedQueries] = chain.invoke({"question": state["original_question"]})
+        generated_queries: GeneratedQueries = chain.invoke({"question": state["original_question"]}) # type: ignore
         if not generated_queries:
             return {"decomposed_questions": [state["original_question"]]}
         decomposed_questions = generated_queries.queries
@@ -53,18 +53,17 @@ class RAGWorkflow:
     def _generation_node(self, state: GraphState):
         context = "\n\n---\n\n".join([doc.page_content for doc in state["documents"]])
         prompt = ChatPromptTemplate.from_template(
-            "You are a highly knowledgeable assistant answering questions using the given context ONLY.\n"
-            "Provide a concise, accurate answer and a clear rationale strictly based on the provided content.\n\n"
-            "CONTEXT:\n{context}\n\n"
-            "QUESTION: {question}\n\n"
-            "INSTRUCTIONS:\n"
-            "- Use only the information in the context to formulate the answer.\n"
-            "- Avoid making assumptions or using external knowledge.\n"
-            "- Your response should be a valid Pydantic object of type `AnswerWithRationale` with two fields:\n"
-            "  - `answer`: A direct, fact-based response.\n"
-            "  - `rationale`: A short explanation justifying the answer using information from the context."
+            """You are a highly knowledgeable assistant answering questions using the given context ONLY.\n
+            Provide a concise, accurate answer and a clear rationale strictly based on the provided content.\n\n
+            CONTEXT:\n{context}\n\n
+            QUESTION: {question}\n\n
+            INSTRUCTIONS:\n
+            - Use only the information in the context to formulate the answer.\n
+            - Avoid making assumptions or using external knowledge.\n
+            - Your response should be a valid Pydantic object of type `FinalAnswer` with one field:\n
+              - `answer`: A direct, fact-based response.\n"""
         )
-        structured_llm = self.generation_llm.with_structured_output(AnswerWithRationale)
+        structured_llm = self.generation_llm.with_structured_output(FinalAnswer)
         chain = prompt | structured_llm
         generation = chain.invoke({
             "context": context,
@@ -85,6 +84,6 @@ class RAGWorkflow:
 
     def invoke(self, question: str, retriever: VectorStoreRetriever):
         initial_state = {"original_question": question, "retriever": retriever}
-        final_state = self.graph.invoke(initial_state)
+        final_state = self.graph.invoke(initial_state) # type: ignore
         decomposed_questions = final_state.get("decomposed_questions", [])
         return final_state, decomposed_questions
