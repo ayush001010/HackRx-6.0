@@ -1,4 +1,5 @@
-import asyncio
+import os
+import pickle
 from typing import List, Tuple
 from langchain_core.documents import Document
 
@@ -18,6 +19,7 @@ class QueryService:
         """
         Initializes the service with an in-memory cache.
         """
+        
         self._cache = {}  # In-memory cache to store processed vector stores
 
     def process_queries(
