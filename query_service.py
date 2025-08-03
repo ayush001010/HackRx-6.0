@@ -1,42 +1,58 @@
-from typing import List
-from fastapi import BackgroundTasks
+import asyncio
+from typing import List, Tuple
+from langchain_core.documents import Document
+
 from document_manager import DocumentManager
 from retriever import VectorStoreProvider
-from workflow import RAGWorkflow
-from models import QueryResponse
+from models import QueryResponse, GeneratedQueries
+from response_generator import ResponseGenerator
 
 class QueryService:
+    """
+    A service class to orchestrate the RAG process:
+    - Downloads documents
+    - Manages a cache of processed vector stores
+    - Generates responses based on retrieved information and questions.
+    """
     def __init__(self):
-        self.rag_workflow = RAGWorkflow()
+        """
+        Initializes the service with an in-memory cache.
+        """
+        self._cache = {}  # In-memory cache to store processed vector stores
 
     def process_queries(
         self,
         document_url: str,
         questions: List[str],
-        background_tasks: BackgroundTasks
-    ):
-        manager = DocumentManager(document_url)
-        vector_store_provider = VectorStoreProvider(manager)
-        retriever = vector_store_provider.get_retriever()
-        
-        full_results = []
-        for question in questions:
-            final_state, generated_queries = self.rag_workflow.invoke(question, retriever)
-            
-            generation = final_state["generation"]
-            retrieved_docs = final_state["documents"]
+        background_tasks
+    ) -> List[Tuple[QueryResponse, GeneratedQueries]]:
+        """
+        Processes a list of questions against a document URL.
+        This method uses a cache to avoid re-processing the same document multiple times.
+        """
+        # Step 1: Check cache for existing vector store
+        if document_url in self._cache:
+            print("Using cached vector store for document...")
+            vector_store_provider = self._cache[document_url]
+        else:
+            print("Processing new document and building vector store...")
+            # Step 2: If not in cache, process the document
+            document_manager = DocumentManager(document_url)
+            vector_store_provider = VectorStoreProvider(document_manager)
 
-            source_page = None
-            if retrieved_docs and 'page' in retrieved_docs[0].metadata:
-                source_page = retrieved_docs[0].metadata['page']
+            # Step 3: Store the new vector store in the cache
+            self._cache[document_url] = vector_store_provider
+            print("Vector store added to cache.")
 
-            query_response = QueryResponse(
-                answer=generation.answer,
-                rationale=generation.rationale,
-                source_page=source_page
-            )
-            
-            full_results.append((query_response, generated_queries))
+            # Add a background task to clean up the temporary file after processing
+            background_tasks.add_task(document_manager.cleanup)
 
-        background_tasks.add_task(manager.cleanup)
-        return full_results
+        # Step 4: Create a ResponseGenerator with the vector store
+        response_generator = ResponseGenerator(vector_store_provider)
+
+        # Step 5: Process all questions and generate responses
+        results = [
+            response_generator.generate_response(question) for question in questions
+        ]
+
+        return results
