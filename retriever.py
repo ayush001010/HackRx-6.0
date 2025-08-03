@@ -1,5 +1,3 @@
-# Backend/Bajaj/retriever.py
-
 import os
 from langchain_chroma import Chroma
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
@@ -38,7 +36,7 @@ class VectorStoreProvider:
 
         # Split documents into smaller, more manageable chunks
         text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1500,
+            chunk_size=1000,
             chunk_overlap=150
         )
         split_docs = text_splitter.split_documents(raw_documents)
@@ -49,5 +47,4 @@ class VectorStoreProvider:
         # Create an in-memory vector store with Chroma
         db = Chroma.from_documents(split_docs, embedding=embedding_model)
 
-        # Return a retriever that fetches the top 4 most relevant chunks
-        return db.as_retriever(search_kwargs={"k": 4})
+        return db.as_retriever(search_kwargs={"k": 5})

@@ -10,7 +10,7 @@ from config import ANSWER_LLM_MODEL,QUERY_LLM_MODEL,GOOGLE_API_KEY
 
 class GraphState(TypedDict):
     original_question: str
-    decomposed_questions: List[str]
+    decomposed_questions: GeneratedQueries
     retriever: VectorStoreRetriever
     documents: List[Document]
     generation: FinalAnswer
@@ -38,13 +38,12 @@ class RAGWorkflow:
         generated_queries: GeneratedQueries = chain.invoke({"question": state["original_question"]}) # type: ignore
         if not generated_queries:
             return {"decomposed_questions": [state["original_question"]]}
-        decomposed_questions = generated_queries.queries
-        decomposed_questions.append(state["original_question"])
-        return {"decomposed_questions": decomposed_questions}
+        generated_queries.queries.append(state["original_question"])
+        return {"decomposed_questions": generated_queries}
 
     def _retrieval_node(self, state: GraphState):
         all_retrieved_docs = []
-        for q in state["decomposed_questions"]:
+        for q in state["decomposed_questions"].queries:
             retrieved = state["retriever"].invoke(q)
             all_retrieved_docs.extend(retrieved)
         unique_docs_dict = {doc.page_content: doc for doc in all_retrieved_docs}
@@ -82,8 +81,8 @@ class RAGWorkflow:
         workflow.add_edge("generate", END)
         return workflow.compile()
 
-    def invoke(self, question: str, retriever: VectorStoreRetriever):
+    def invoke(self, question: str, retriever: VectorStoreRetriever)->FinalAnswer:
         initial_state = {"original_question": question, "retriever": retriever}
         final_state = self.graph.invoke(initial_state) # type: ignore
-        decomposed_questions = final_state.get("decomposed_questions", [])
-        return final_state, decomposed_questions
+        answer_object:FinalAnswer = final_state.get("generation") # type: ignore
+        return answer_object
