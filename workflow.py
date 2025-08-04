@@ -42,12 +42,14 @@ class RAGWorkflow:
         return {"decomposed_questions": generated_queries}
 
     def _retrieval_node(self, state: GraphState):
-        all_retrieved_docs = []
-        for q in state["decomposed_questions"].queries:
-            retrieved = state["retriever"].invoke(q)
-            all_retrieved_docs.extend(retrieved)
-        unique_docs_dict = {doc.page_content: doc for doc in all_retrieved_docs}
-        return {"documents": list(unique_docs_dict.values())}
+        queries = state["decomposed_questions"].queries
+        # batch run rather than sequential invoke
+        docs_lists = state["retriever"].batch(queries)
+        # flatten and dedupe by page content (or metadata)
+        all_docs = [doc for docs in docs_lists for doc in docs]
+        unique = {doc.page_content: doc for doc in all_docs}
+        return {"documents": list(unique.values())}
+
 
     def _generation_node(self, state: GraphState):
         context = "\n\n---\n\n".join([doc.page_content for doc in state["documents"]])

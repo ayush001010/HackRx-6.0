@@ -25,7 +25,7 @@ class QueryService:
         print("Processing new document and building vector store...")
         document_manager = DocumentManager(document_url)
         retriever = VectorStoreProvider(document_manager).retriever
-
+        print("retriever created....\ncalling llm")
 
         results = []
         for question in questions:
