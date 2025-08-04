@@ -23,7 +23,7 @@ def run_test():
     TEST_QUESTIONS = [
         "What is a Transformer and what are its components?",
         "What was the BLEU score for the big Transformer model on the English-to-German translation task shown in Table 2?",
-        "What is the capital of France?"
+        "How is the transformer model better from its predecessors?"
     ]
 
     rprint(Panel(
