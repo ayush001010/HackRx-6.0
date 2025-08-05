@@ -1,5 +1,5 @@
 fastapi
-uvicorn[standard]
+uvicorn
 langchain
 langgraph
 langchain-google-genai
