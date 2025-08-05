@@ -2,8 +2,9 @@ from rich import print as rprint
 from rich.panel import Panel
 from rich.text import Text
 from fastapi import BackgroundTasks
-
+from models import Question, FinalAnswer
 from query_service import QueryService
+from typing import List
 
 # class MockBackgroundTasks(BackgroundTasks):
 #     def __init__(self):
@@ -20,12 +21,13 @@ from query_service import QueryService
 
 def run_test():
     TEST_DOCUMENT_URL = "https://arxiv.org/pdf/1706.03762.pdf"
-    TEST_QUESTIONS = [
+    questions = [
         "What is a Transformer and what are its components?",
         "What was the BLEU score for the big Transformer model on the English-to-German translation task shown in Table 2?",
-        "How is the transformer model better from its predecessors?"
+        "How is the transformer model better from its predecessors?",
+        "Which organization published the paper?"
     ]
-
+    TEST_QUESTIONS = [Question(question=question) for question in questions]
     rprint(Panel(
         f"Document URL: [blue]{TEST_DOCUMENT_URL}[/blue]\n"
         f"Questions: [yellow]{len(TEST_QUESTIONS)}[/yellow]",
@@ -45,7 +47,7 @@ def run_test():
     #     rprint(Panel(f"[bold red]An error occurred during processing:[/bold red]\n{e}", title="[red]Test Failed[/red]"))
     #     return
 
-    results = query_service.process_queries(
+    results:List[FinalAnswer] = query_service.process_queries(
         document_url=TEST_DOCUMENT_URL,
         questions=TEST_QUESTIONS
     )

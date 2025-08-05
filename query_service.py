@@ -1,5 +1,5 @@
 from typing import List, Tuple
-from models import FinalAnswer
+from models import *
 from document_manager import DocumentManager
 from retriever import VectorStoreProvider
 from workflow import RAGWorkflow
@@ -17,7 +17,7 @@ class QueryService:
     def process_queries(
         self,
         document_url: str,
-        questions: List[str]
+        questions: List[Question]
     ) -> List[FinalAnswer]:
         """
         Processes a list of questions against a document URL.
@@ -27,8 +27,6 @@ class QueryService:
         retriever = VectorStoreProvider(document_manager).retriever
         print("retriever created....\ncalling llm")
 
-        results = []
-        for question in questions:
-            results.append(self.llm.invoke(question,retriever))
+        results = self.llm.invoke(questions,retriever)
 
         return results

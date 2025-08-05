@@ -4,16 +4,17 @@ from langgraph.graph import StateGraph, END
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.vectorstores import VectorStoreRetriever
+from langchain_core.runnables import RunnableParallel
 from models import *
-from typing import Optional
 from config import ANSWER_LLM_MODEL,QUERY_LLM_MODEL,GOOGLE_API_KEY
+from pprint import pprint
 
 class GraphState(TypedDict):
-    original_question: str
+    original_questions: List[Question]
     decomposed_questions: GeneratedQueries
     retriever: VectorStoreRetriever
-    documents: List[Document]
-    generation: FinalAnswer
+    documents: List[List[Document]]
+    answers: List[FinalAnswer]
 
 class RAGWorkflow:
     def __init__(self):
@@ -23,54 +24,109 @@ class RAGWorkflow:
 
     def _query_decomposition_node(self, state: GraphState):
         prompt = ChatPromptTemplate.from_template(
-            "You are an expert research assistant tasked with query understanding and rewriting.\n"
-            "Your job is to generate 3 diverse, relevant, and high-quality search queries based on the original user question.\n\n"
-            "Your queries should:\n"
-            "- Target the core intent of the original question.\n"
-            "- Vary slightly in phrasing to explore related angles or subtopics.\n"
-            "- Be suitable for use in a document retrieval system.\n\n"
-            "NOTE: Output must be a valid Pydantic object of type `GeneratedQueries`, with a `queries` field containing exactly 3 strings.\n\n"
-            "Think deeply before answering.\n"
-            "Original Question: {question}"
+            """You are an expert research assistant.
+
+            Given a list of N user questions, generate for each question exactly 3 diverse, relevant search queries
+            useful for retrieving related information from documents.
+
+            Return a valid Pydantic object of type `GeneratedQueries`, which has a field `lst`, a list of length N.
+            Each element of `lst` must be a `GeneratedQueriesForEachQuestion`, containing a `queries` list of length 3.
+
+            QUESTIONS:
+            {questions}
+            """
         )
+
+        questions_str = "\n".join(f"{i+1}. {q.question}" for i, q in enumerate(state["original_questions"]))
+
         structured_llm = self.decomposition_llm.with_structured_output(GeneratedQueries)
         chain = prompt | structured_llm
-        generated_queries: GeneratedQueries = chain.invoke({"question": state["original_question"]}) # type: ignore
-        if not generated_queries:
-            return {"decomposed_questions": [state["original_question"]]}
-        generated_queries.queries.append(state["original_question"])
-        return {"decomposed_questions": generated_queries}
+        generated_lists: GeneratedQueries = chain.invoke({"questions": questions_str})  # type: ignore
+
+        if not generated_lists or len(generated_lists.lst) != len(state["original_questions"]):
+            lst = []
+            for q in state["original_questions"]:
+                lst.append(GeneratedQueriesForEachQuestion(queries=[q.question]))
+
+            default = GeneratedQueries(lst=lst)
+            return {"decomposed_questions": default}
+
+        for i,el in enumerate(generated_lists.lst):
+            el.queries.append(state["original_questions"][i].question)
+        return {"decomposed_questions": generated_lists}
+
+    def pretty_print_documents_simple(self,documents: List[List[Document]], max_chars: int = 200):
+        for qi, docs in enumerate(documents, start=1):
+            print(f"\n=== Question #{qi} — {len(docs)} documents ===")
+            for di, doc in enumerate(docs, start=1):
+                meta = getattr(doc, "metadata", {}) or {}
+                print(f"\n  Doc {di}:")
+                pprint({"metadata": meta})
+                text_snip = doc.page_content[:max_chars].replace("\n", " ")
+                print(f"  content_preview: {text_snip}{'...' if len(doc.page_content) > max_chars else ''}")
 
     def _retrieval_node(self, state: GraphState):
-        queries = state["decomposed_questions"].queries
+        queries = []
+        for query_object in state["decomposed_questions"].lst:
+            queries.extend(query_object.queries)
         # batch run rather than sequential invoke
+        # queries is a list of strings
+        """
+        N initialy queries. Total 4 queries per original questions.
+        4N queries in queries[].
+        3 Chunks are returned.
+        docs_list->4N size. ech element containing a list of 3 Documents.
+        need to flatten every 4 nested lists together.
+        documents: N length nested list od documents.
+        """
         docs_lists = state["retriever"].batch(queries)
+        per_q = len(state["decomposed_questions"].lst[0].queries)
         # flatten and dedupe by page content (or metadata)
-        all_docs = [doc for docs in docs_lists for doc in docs]
-        unique = {doc.page_content: doc for doc in all_docs}
-        return {"documents": list(unique.values())}
+        documents:List[List[Document]] = []
+        for i in range(0,len(docs_lists), per_q):
+            single_question_docs = [doc for docs in docs_lists[i:i+per_q] for doc in docs]
+            unique = {doc.page_content: doc for doc in single_question_docs}
+            documents.append(list(unique.values()))
 
+        # self.pretty_print_documents_simple(documents)
+
+        return {"documents": documents}
 
     def _generation_node(self, state: GraphState):
-        context = "\n\n---\n\n".join([doc.page_content for doc in state["documents"]])
+        contexts = [
+            "\n\n---\n\n".join([doc.page_content for doc in docs])
+            for docs in state["documents"]
+        ]
+        questions = [q.question for q in state["original_questions"]]
+        N = len(questions)
+
         prompt = ChatPromptTemplate.from_template(
-            """You are a highly knowledgeable assistant answering questions using the given context ONLY.\n
-            Provide a concise, accurate answer and a clear rationale strictly based on the provided content.\n\n
-            CONTEXT:\n{context}\n\n
-            QUESTION: {question}\n\n
-            INSTRUCTIONS:\n
-            - Use only the information in the context to formulate the answer.\n
-            - Avoid making assumptions or using external knowledge.\n
-            - Your response should be a valid Pydantic object of type `FinalAnswer` with one field:\n
-              - `answer`: A direct, fact-based response.\n"""
+            """You are a highly knowledgeable assistant answering questions using the given context ONLY.
+
+            Provide a concise, accurate answer and a clear rationale strictly based on the provided content.
+
+            CONTEXT:
+            {context}
+
+            QUESTION: {question}
+
+            INSTRUCTIONS:
+            - Use only the information in the context to formulate the answer.
+            - Avoid making assumptions or using external knowledge.
+            - Your response should be a valid Pydantic object of type `FinalAnswer` with one field:
+            - `answer`: A direct, fact-based response.
+            """
         )
         structured_llm = self.generation_llm.with_structured_output(FinalAnswer)
         chain = prompt | structured_llm
-        generation = chain.invoke({
-            "context": context,
-            "question": state["original_question"]
-        })
-        return {"generation": generation}
+        batch_inputs = [
+            {"context": contexts[i], "question": questions[i]} for i in range(N)
+        ]
+
+        # 2. Invoke the chain in batch mode. LangChain handles the parallel execution.
+        #    The result is already a list of FinalAnswer objects in the correct order.
+        final_answers: List[FinalAnswer] = chain.batch(batch_inputs) # type: ignore
+        return {"answers": final_answers}
 
     def _build_graph(self):
         workflow = StateGraph(GraphState)
@@ -83,8 +139,8 @@ class RAGWorkflow:
         workflow.add_edge("generate", END)
         return workflow.compile()
 
-    def invoke(self, question: str, retriever: VectorStoreRetriever)->FinalAnswer:
-        initial_state = {"original_question": question, "retriever": retriever}
+    def invoke(self, questions: List[Question], retriever: VectorStoreRetriever)->List[FinalAnswer]:
+        initial_state = {"original_questions": questions, "retriever": retriever}
         final_state = self.graph.invoke(initial_state) # type: ignore
-        answer_object:FinalAnswer = final_state.get("generation") # type: ignore
-        return answer_object
+        answer_objects:List[FinalAnswer] = final_state.get("answers") # type: ignore
+        return answer_objects
