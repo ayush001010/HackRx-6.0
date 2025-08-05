@@ -10,4 +10,3 @@ fitz
 python-dotenv
 requests
 rich
-gunicorn
