@@ -1,5 +1,5 @@
-from typing import List, Tuple
-from models import *
+from typing import List
+from models import Question,FinalAnswer
 from document_manager import DocumentManager
 from retriever import VectorStoreProvider
 from workflow import RAGWorkflow

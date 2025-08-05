@@ -1,5 +1,5 @@
 from pydantic import BaseModel, HttpUrl, Field
-from typing import List, Optional
+from typing import List
 
 class Question(BaseModel):
     question: str
@@ -12,3 +12,10 @@ class GeneratedQueriesForEachQuestion(BaseModel):
 
 class GeneratedQueries(BaseModel):
     lst: List[GeneratedQueriesForEachQuestion] = Field(description="This is a list consisting of another set of nested lists which contain the generated queries for each question.")
+
+class QueryResponse(BaseModel):
+    answers: List[str]
+
+class QueryRequest(BaseModel):
+    documents: HttpUrl
+    questions: List[str]
