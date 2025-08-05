@@ -7,17 +7,16 @@ from typing import List
 from rich import print as rprint
 from rich.panel import Panel
 import requests
-
+from config import *
 # FIX: Import 'Question' model for type conversion and removed unused 'BackgroundTasks'
 from models import QueryRequest, QueryResponse, FinalAnswer, Question
 from query_service import QueryService
 
 # --- Configuration ---
 # FIX: API token is now defined directly in the code as per the competition docs.
-API_AUTH_TOKEN = "722ea330773bc2088938dd4862c3f49ea3770db92788898e779cbdde02e2ad92"
 # FIX: It's good practice to load sensitive keys from environment variables.
 # Your query_service.py will likely need this.
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+
 
 # --- FastAPI App Initialization ---
 app = FastAPI(

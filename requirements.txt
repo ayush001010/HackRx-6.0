@@ -4,9 +4,8 @@ langchain
 langgraph
 langchain-google-genai
 langchain-chroma
-chromadb
+langchain-community
 tiktoken
-pypdf
 fitz
 python-dotenv
 requests
