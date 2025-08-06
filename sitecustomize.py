@@ -1,3 +1,12 @@
+import sys
+
+try:
+    # On Linux/Azure this will succeed and override sqlite3
+    import pysqlite3
+    sys.modules['sqlite3'] = pysqlite3
+except ImportError:
+    # On Windows (where the wheel isn't available), just fall back
+    pass
 
 import collections
 import collections.abc
