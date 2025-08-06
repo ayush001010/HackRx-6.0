@@ -1,13 +1,11 @@
-# ---- Python Compatibility Patch ----
+# sitecustomize.py
 import collections
 import collections.abc
 
-try:
-    collections.abc.Sequence
-except AttributeError:
-    collections.abc.Sequence = collections.abc.Sequence  # type: ignore[attr-defined]
-
-
+# Fix Python >=3.10: collections.Sequence was moved to collections.abc
+if not hasattr(collections, "Sequence"):
+    setattr(collections, "Sequence", collections.abc.Sequence)
+    
 # —————— Azure Blob Storage Setup ——————
 from dotenv import load_dotenv
 load_dotenv()
