@@ -10,3 +10,5 @@ langchain-community
 tiktoken
 fitz
 python-dotenv
+azure-storage-blob
+azure-identity
