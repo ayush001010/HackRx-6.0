@@ -1,19 +1,19 @@
-# sitecustomize.py
-import collections
-import collections.abc
-
-# Fix Python >=3.10: collections.Sequence was moved to collections.abc
-if not hasattr(collections, "Sequence"):
-    setattr(collections, "Sequence", collections.abc.Sequence)
-    
-# —————— Azure Blob Storage Setup ——————
+from fastapi import FastAPI, HTTPException, status, Depends, Request
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from typing import List
+from rich import print as rprint
+from rich.panel import Panel
+import requests, os, tempfile, time, traceback
 from dotenv import load_dotenv
+from azure.storage.blob import BlobServiceClient
+from config import *
+from models import QueryRequest, QueryResponse, FinalAnswer, Question
+from query_service import QueryService
+
+# Load env vars
 load_dotenv()
 
-from azure.storage.blob import BlobServiceClient
-import os
-import tempfile
-
+# --- Azure Blob Storage Setup ---
 account_url = os.getenv("AZURE_STORAGE_ACCOUNT_URL")
 container_name = os.getenv("AZURE_STORAGE_CONTAINER")
 account_key = os.getenv("AZURE_STORAGE_KEY")
@@ -32,19 +32,6 @@ def download_blob_to_path(blob_name: str, local_path: str):
     blob_client = container_client.get_blob_client(blob=blob_name)
     with open(local_path, "wb") as f:
         f.write(blob_client.download_blob().readall())
-
-# ————————————————————————————————
-import time
-import traceback
-from fastapi import FastAPI, HTTPException, status, Depends, Request
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from typing import List
-from rich import print as rprint
-from rich.panel import Panel
-import requests
-from config import *
-from models import QueryRequest, QueryResponse, FinalAnswer, Question
-from query_service import QueryService
 
 # --- FastAPI App Initialization ---
 app = FastAPI(
@@ -97,10 +84,8 @@ async def run_submission(
 ):
     rprint(Panel(f"Processing request for document: [blue]{str(request_body.documents)}[/blue]", title="[cyan]New Request[/cyan]"))
     try:
-        # 1. Convert question strings into Question models
         questions_as_models = [Question(question=q) for q in request_body.questions]
 
-        # 2. Handle Azure Blob PDFs (if provided as blob://filename.pdf)
         document_url = str(request_body.documents)
         if document_url.startswith("blob://"):
             blob_name = document_url.replace("blob://", "")
@@ -108,7 +93,6 @@ async def run_submission(
             download_blob_to_path(blob_name, local_pdf_path)
             document_url = local_pdf_path
 
-        # 3. Run your existing query processing logic
         results: List[FinalAnswer] = query_service.process_queries(
             document_url=document_url,
             questions=questions_as_models,
@@ -123,7 +107,7 @@ async def run_submission(
     except ValueError as e:
         rprint(Panel(f"[bold red]Processing Error:[/bold red]\n{e}", title="[red]Error[/red]"))
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
-    except Exception as e:
+    except Exception:
         tb_str = traceback.format_exc()
         rprint(Panel(f"[bold red]An unexpected server error occurred:[/bold red]\n{tb_str}", title="[red]Server Error[/red]"))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An internal server error occurred.")
