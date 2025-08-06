@@ -1,9 +1,13 @@
-# --- Compatibility Fix for Python >=3.10 ---
+# ---- Python Compatibility Patch ----
 import collections
 import collections.abc
-if not hasattr(collections, "Sequence"):
-    collections.Sequence = collections.abc.Sequence
-    
+
+try:
+    collections.abc.Sequence
+except AttributeError:
+    collections.abc.Sequence = collections.abc.Sequence  # type: ignore[attr-defined]
+
+
 # —————— Azure Blob Storage Setup ——————
 from dotenv import load_dotenv
 load_dotenv()
