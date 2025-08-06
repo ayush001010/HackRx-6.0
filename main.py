@@ -1,3 +1,9 @@
+# --- Compatibility Fix for Python >=3.10 ---
+import collections
+import collections.abc
+if not hasattr(collections, "Sequence"):
+    collections.Sequence = collections.abc.Sequence
+    
 # —————— Azure Blob Storage Setup ——————
 from dotenv import load_dotenv
 load_dotenv()
