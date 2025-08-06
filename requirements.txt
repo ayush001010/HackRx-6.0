@@ -12,3 +12,4 @@ fitz
 python-dotenv
 azure-storage-blob
 azure-identity
+pymupdf
